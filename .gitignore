@@ -1,0 +1,17 @@
+# Dependencias y compilados
+node_modules/
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# Variables de entorno
+.env
+.env.*
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea

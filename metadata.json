@@ -1,0 +1,6 @@
+{
+  "name": "AFRONEXIA VT Intelligence 2026",
+  "description": "Dashboard interactivo y presentación científica de 15 minutos para la sustentación de la Vigilancia Tecnológica del proyecto AFRONEXIA (SENA - SENNOVA 2026).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
