@@ -3,6 +3,37 @@ import { X, Send, Bot, MapPin, Compass, BookOpen, Loader2, Database, Globe, Chev
 import { Markdown } from '../nexia/Markdown';
 import { preguntarNexia } from '../nexia/cliente';
 import type { Fuente } from '../nexia/engine';
+import fotoMuelle from '../assets/images/explorador/muelle-terminal-fluvial-yuma.webp';
+import fotoTambores from '../assets/images/explorador/tambores-afro.jpg';
+import fotoCocina from '../assets/images/explorador/cocina-riberena-bocachico.jpg';
+
+interface FotoExplorador {
+  src: string;
+  alt: string;
+  pie: string;
+  posicion: string;
+}
+
+const FOTOS = {
+  muelle: {
+    src: fotoMuelle,
+    alt: 'Vista aérea de Barrancabermeja con la Terminal Fluvial Yuma y el malecón a orillas del río Magdalena',
+    pie: 'Terminal Fluvial Yuma y malecón sobre el río Magdalena',
+    posicion: 'object-[center_65%]',
+  },
+  tambores: {
+    src: fotoTambores,
+    alt: 'Cantadora con maracas y tamborero tocando tambores tradicionales afro, vestidos de naranja y blanco',
+    pie: 'Cantadora y tamborero: percusión tradicional afro',
+    posicion: 'object-[center_25%]',
+  },
+  cocina: {
+    src: fotoCocina,
+    alt: 'Caldo de pescado bocachico con yuca, cebolla y cilantro servido en cazuela de barro',
+    pie: 'Caldo de bocachico en cazuela de barro',
+    posicion: 'object-center',
+  },
+} satisfies Record<string, FotoExplorador>;
 import { PROTOTYPE_MODULES_TABLE9 } from '../data/reportData';
 import { AfronexiaLogo } from './logos/AfronexiaLogo';
 import { SenaLogo } from './logos/SenaLogo';
@@ -37,11 +68,19 @@ export const PrototypeViewerModal: React.FC<PrototypeViewerModalProps> = ({ isOp
     },
   ]);
   const [cargando, setCargando] = useState(false);
+  const [fotoAmpliada, setFotoAmpliada] = useState<FotoExplorador | null>(null);
   const finRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     finRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, cargando]);
+
+  useEffect(() => {
+    if (!fotoAmpliada) return;
+    const cerrar = (e: KeyboardEvent) => e.key === 'Escape' && setFotoAmpliada(null);
+    window.addEventListener('keydown', cerrar);
+    return () => window.removeEventListener('keydown', cerrar);
+  }, [fotoAmpliada]);
 
   if (!isOpen) return null;
 
@@ -295,27 +334,21 @@ export const PrototypeViewerModal: React.FC<PrototypeViewerModalProps> = ({ isOp
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-                  <div className="h-28 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-xs text-cyan-400 font-mono">
-                    [Fotografía Muelle Fluvial]
-                  </div>
+                  <FotoTarjeta foto={FOTOS.muelle} onAmpliar={setFotoAmpliada} />
                   <div className="font-bold text-xs text-white">Paseo de la Cultura y Muelle</div>
                   <p className="text-[11px] text-slate-400">Punto de encuentro histórico de canoeros y pescadores artesanales.</p>
                   <div className="text-[10px] text-cyan-300 font-mono">Barrancabermeja · Acceso libre</div>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-                  <div className="h-28 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-xs text-amber-400 font-mono">
-                    [Taller de Tambores Afro]
-                  </div>
+                  <FotoTarjeta foto={FOTOS.tambores} onAmpliar={setFotoAmpliada} />
                   <div className="font-bold text-xs text-white">Casa Cultural Raíces del Río</div>
                   <p className="text-[11px] text-slate-400">Espacio de formación en percusión tradicional y danza de bullerengue.</p>
                   <div className="text-[10px] text-cyan-300 font-mono">Barrio El Arenal · Contacto directo</div>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-                  <div className="h-28 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-xs text-emerald-400 font-mono">
-                    [Cocina Ribereña Tradicional]
-                  </div>
+                  <FotoTarjeta foto={FOTOS.cocina} onAmpliar={setFotoAmpliada} />
                   <div className="font-bold text-xs text-white">Rincón Gastronómico Afro</div>
                   <p className="text-[11px] text-slate-400">Sancocho de bocachico y dulces tradicionales de las matronas ribereñas.</p>
                   <div className="text-[10px] text-cyan-300 font-mono">Sector Malecón · Horario 10:00 - 18:00</div>
@@ -384,6 +417,25 @@ export const PrototypeViewerModal: React.FC<PrototypeViewerModalProps> = ({ isOp
           )}
         </div>
 
+        {fotoAmpliada && (
+          <div
+            role="dialog"
+            aria-label={fotoAmpliada.pie}
+            className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4 cursor-zoom-out"
+            onClick={() => setFotoAmpliada(null)}
+          >
+            <img src={fotoAmpliada.src} alt={fotoAmpliada.alt} className="max-h-[82vh] max-w-full rounded-xl shadow-2xl object-contain" />
+            <p className="mt-3 text-sm text-slate-200">{fotoAmpliada.pie}</p>
+            <button
+              onClick={() => setFotoAmpliada(null)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-slate-900/80 text-slate-200 hover:text-white"
+              aria-label="Cerrar fotografía"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+
         {/* Modal Footer */}
         <div className="p-3.5 px-5 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
           <span>Prototipo desarrollado en el marco del programa ADSO · SENA Centro de Comercio</span>
@@ -398,3 +450,22 @@ export const PrototypeViewerModal: React.FC<PrototypeViewerModalProps> = ({ isOp
     </div>
   );
 };
+
+const FotoTarjeta: React.FC<{ foto: FotoExplorador; onAmpliar: (f: FotoExplorador) => void }> = ({ foto, onAmpliar }) => (
+  <button
+    type="button"
+    onClick={() => onAmpliar(foto)}
+    className="group relative block w-full h-40 rounded-lg overflow-hidden border border-slate-800 bg-slate-900 cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-cyan-500"
+    aria-label={`Ampliar fotografía: ${foto.pie}`}
+  >
+    <img
+      src={foto.src}
+      alt={foto.alt}
+      loading="lazy"
+      className={`w-full h-full object-cover ${foto.posicion} transition-transform duration-500 group-hover:scale-105`}
+    />
+    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2 pt-6 pb-1.5 text-left text-[10px] text-slate-100">
+      {foto.pie}
+    </span>
+  </button>
+);
