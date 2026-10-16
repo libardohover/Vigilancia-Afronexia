@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { X, Send, Bot, Sparkles, MapPin, Calendar, Heart, Compass, BookOpen, User, Search, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { X, Send, Bot, MapPin, Compass, BookOpen, Loader2, Database, Globe, ChevronDown } from 'lucide-react';
+import { Markdown } from '../nexia/Markdown';
+import { preguntarNexia } from '../nexia/cliente';
+import type { Fuente } from '../nexia/engine';
 import { PROTOTYPE_MODULES_TABLE9 } from '../data/reportData';
 import { AfronexiaLogo } from './logos/AfronexiaLogo';
 import { SenaLogo } from './logos/SenaLogo';
@@ -13,8 +16,13 @@ interface ChatMessage {
   sender: 'user' | 'nexia';
   text: string;
   source?: string;
+  fuentes?: Fuente[];
+  motor?: 'gemini' | 'local';
+  herramientas?: string[];
   timestamp: string;
 }
+
+const hora = () => new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 
 export const PrototypeViewerModal: React.FC<PrototypeViewerModalProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<'nexia' | 'explorador' | 'memoria' | 'rutas'>('nexia');
@@ -22,65 +30,59 @@ export const PrototypeViewerModal: React.FC<PrototypeViewerModalProps> = ({ isOp
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       sender: 'nexia',
-      text: '¡Hola! Soy NEXIA, tu asistente cultural y turística de Barrancabermeja. Estoy conectada a la base de conocimiento de AFRONEXIA mediante arquitectura RAG. ¿Deseas conocer saberes gastronómicos afro, rutas por el río Magdalena o la programación de tambores?',
-      source: 'Base de conocimiento AFRONEXIA · Centro de Comercio SENA',
-      timestamp: '10:00',
+      text:
+        '¡Hola! Soy **NEXIA**, el agente virtual de AFRONEXIA para Barrancabermeja. Consulto la base de conocimiento del proyecto y, cuando hace falta, información actual de la web.\n\nPuedo armarte **rutas por días**, decirte **dónde bañarse con niños de forma segura**, **dónde tomar un buen tinto**, qué comer y qué expresiones de la **cultura afro** del territorio visitar.',
+      source: 'Base_Conocimiento_AFRONEXIA_v1 · ofertas_culturales',
+      timestamp: hora(),
     },
   ]);
+  const [cargando, setCargando] = useState(false);
+  const finRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    finRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, cargando]);
 
   if (!isOpen) return null;
 
   const suggestedQuestions = [
-    '¿Qué saberes tradicionales de gastronomía afro existen en Barrancabermeja?',
-    '¿Cómo se articula el río Magdalena con la memoria de los pescadores artesanales?',
-    '¿Qué ruta cultural recomiendas para recorrer la memoria afrodescendiente?',
-    '¿Cómo pueden los portadores registrar sus saberes en AFRONEXIA?',
+    'Tengo tres días de vacaciones y vamos dos adultos y dos niños. Dame una ruta por día, dónde bañarnos con los niños y dónde tomar un buen tinto.',
+    '¿Dónde puedo bañarme con niños en Barrancabermeja?',
+    '¿Dónde tomo un buen tinto?',
+    '¿Qué plato típico ribereño debo probar y dónde?',
+    '¿Qué expresiones de la cultura afro puedo conocer en Barrancabermeja?',
   ];
 
-  const handleSend = (textToSend?: string) => {
-    const q = textToSend || inputQuery;
-    if (!q.trim()) return;
+  const handleSend = async (textToSend?: string) => {
+    const q = (textToSend ?? inputQuery).trim();
+    if (!q || cargando) return;
 
-    const userMsg: ChatMessage = {
-      sender: 'user',
-      text: q,
-      timestamp: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    let reply = '';
-    let source = 'Base Vectorial pgvector · AFRONEXIA';
-
-    if (q.toLowerCase().includes('gastronomía') || q.toLowerCase().includes('comida')) {
-      reply =
-        'En Barrancabermeja, la gastronomía afrodescendiente es un pilar de memoria viva. Destacan el sancocho de bocachico en leña, el tapao de pescado con plátano verde, los bollos de mazorca limpia y los dulces tradicionales de guayaba y coco elaborados por matronas del sector ribereño. En AFRONEXIA puedes consultar 8 fichas de emprendimientos gastronómicos con contacto directo.';
-      source = 'Módulo 2 (Memoria) & Módulo 4 (Emprendimientos) · AFRONEXIA';
-    } else if (q.toLowerCase().includes('río') || q.toLowerCase().includes('pescador')) {
-      reply =
-        'El lema del proyecto lo resume: "El río también guarda memoria afro". Para las comunidades negras del Magdalena Medio, el río es vía de poblamiento, sustento de pesca artesanal y espacio de cantos de boga. Nuestro módulo de memoria preserva testimonios orales de pescadores de los barrios Arenal y Cardales.';
-      source = 'Archivo Oral de Pescadores · Ficha Patrimonial B-04';
-    } else if (q.toLowerCase().includes('ruta') || q.toLowerCase().includes('recorrido')) {
-      reply =
-        'Te sugiero la "Ruta de la Memoria y el Tambor Ribereño": 3 horas de recorrido, dificultad baja, iniciando en el Paseo de la Cultura, pasando por el Muelle de Barrancabermeja, el taller de luthería de tambores alegres y culminando con degustación de dulces típicos.';
-      source = 'Módulo 5 (Rutas Culturales) · Georreferenciación GIS';
-    } else if (q.toLowerCase().includes('registrar') || q.toLowerCase().includes('saberes')) {
-      reply =
-        'Cualquier portador de tradición, sabedor o gestor cultural puede utilizar el botón "Registrar mis saberes" en el Módulo de Memoria. El sistema solicita datos del portador, descripción del saber tradicional, registro fotográfico o de audio, pasando por validación comunitaria antes de publicarse.';
-      source = 'Módulo 2 (Memoria y Patrimonio) · Tabla 9 del Informe';
-    } else {
-      reply =
-        `Consultando en la base documental validada sobre: "${q}". AFRONEXIA recupera información verificada con portadores y gestores culturales de Barrancabermeja, protegiendo la identidad afrodescendiente y evitando alucinaciones generativas.`;
-      source = 'Arquitectura RAG · pgvector / PostgreSQL 16';
-    }
-
-    const nexiaMsg: ChatMessage = {
-      sender: 'nexia',
-      text: reply,
-      source,
-      timestamp: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    setMessages((prev) => [...prev, userMsg, nexiaMsg]);
+    const historial = messages.slice(1).map(m => ({ rol: m.sender === 'user' ? ('usuario' as const) : ('nexia' as const), texto: m.text }));
+    setMessages(prev => [...prev, { sender: 'user', text: q, timestamp: hora() }]);
     setInputQuery('');
+    setCargando(true);
+    try {
+      const r = await preguntarNexia(q, historial);
+      setMessages(prev => [
+        ...prev,
+        {
+          sender: 'nexia',
+          text: r.texto,
+          fuentes: r.fuentes,
+          motor: r.motor,
+          herramientas: r.herramientas,
+          source: r.origen,
+          timestamp: hora(),
+        },
+      ]);
+    } catch {
+      setMessages(prev => [
+        ...prev,
+        { sender: 'nexia', text: 'No pude procesar la consulta en este momento. Intenta de nuevo.', timestamp: hora() },
+      ]);
+    } finally {
+      setCargando(false);
+    }
   };
 
   return (
@@ -183,7 +185,7 @@ export const PrototypeViewerModal: React.FC<PrototypeViewerModalProps> = ({ isOp
                     className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'} space-y-1`}
                   >
                     <div
-                      className={`max-w-2xl p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
+                      className={`max-w-3xl min-w-0 p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
                         m.sender === 'user'
                           ? 'bg-amber-500 text-slate-950 font-semibold rounded-tr-none'
                           : 'bg-slate-900 text-slate-200 border border-slate-750 rounded-tl-none'
@@ -195,29 +197,63 @@ export const PrototypeViewerModal: React.FC<PrototypeViewerModalProps> = ({ isOp
                           <span>NEXIA · Asistente Cultural</span>
                         </div>
                       )}
-                      <p>{m.text}</p>
-                      {m.source && (
-                        <div className="mt-2 pt-1 border-t border-slate-800 text-[10px] text-cyan-300/80 font-mono">
-                          Fuente verificada: {m.source}
+                      {m.sender === 'user' ? <p>{m.text}</p> : <Markdown texto={m.text} />}
+                      {m.sender === 'nexia' && (m.source || m.motor) && (
+                        <div className="mt-2 pt-1.5 border-t border-slate-800 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-cyan-300/80 font-mono">
+                          {m.motor && (
+                            <span className="flex items-center gap-1">
+                              {m.motor === 'gemini' ? <Globe className="w-3 h-3" /> : <Database className="w-3 h-3" />}
+                              {m.motor === 'gemini' ? 'Agente Gemini + herramientas' : 'Motor local AFRONEXIA'}
+                            </span>
+                          )}
+                          {m.source && <span>Base: {m.source}</span>}
+                          {m.herramientas && m.herramientas.length > 0 && <span>Herramientas: {m.herramientas.join(', ')}</span>}
                         </div>
+                      )}
+                      {m.fuentes && m.fuentes.length > 0 && (
+                        <details className="mt-1.5 group">
+                          <summary className="cursor-pointer list-none flex items-center gap-1 text-[11px] font-semibold text-amber-300 hover:text-amber-200">
+                            <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+                            Fuentes ({m.fuentes.length})
+                          </summary>
+                          <ol className="mt-1 pl-5 list-decimal space-y-0.5 text-[11px] text-slate-400">
+                            {m.fuentes.map((f, i) => (
+                              <li key={i}>
+                                <a href={f.url} target="_blank" rel="noreferrer noopener" className="text-cyan-300 hover:underline">
+                                  {f.titulo}
+                                </a>{' '}
+                                · {f.entidad}
+                                {f.fecha ? ` · ${f.fecha}` : ''}
+                              </li>
+                            ))}
+                          </ol>
+                        </details>
                       )}
                     </div>
                     <span className="text-[10px] text-slate-500 font-mono px-1">{m.timestamp}</span>
                   </div>
                 ))}
+                {cargando && (
+                  <div className="flex items-center gap-2 text-xs text-cyan-300 p-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    NEXIA está consultando la base de conocimiento…
+                  </div>
+                )}
+                <div ref={finRef} />
               </div>
 
               {/* Suggested Quick Prompts */}
               <div className="space-y-1">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                <span className="hidden sm:inline text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
                   Preguntas frecuentes del catálogo territorial:
                 </span>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
                   {suggestedQuestions.map((q, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleSend(q)}
-                      className="px-2.5 py-1 text-[11px] rounded-lg bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-800 text-left transition-colors"
+                      disabled={cargando}
+                      className="disabled:opacity-60 shrink-0 max-w-[80vw] truncate sm:max-w-none sm:whitespace-normal sm:shrink px-2.5 py-1 text-[11px] rounded-lg bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-800 text-left transition-colors"
                     >
                       "{q}"
                     </button>
@@ -232,12 +268,17 @@ export const PrototypeViewerModal: React.FC<PrototypeViewerModalProps> = ({ isOp
                   placeholder="Pregúntale a NEXIA sobre patrimonio afro, rutas o saberes de Barrancabermeja..."
                   value={inputQuery}
                   onChange={(e) => setInputQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                  onKeyDown={(e) => {
+                    // Evita que las flechas/espacio cambien de pantalla de la presentación
+                    e.stopPropagation();
+                    if (e.key === 'Enter') handleSend();
+                  }}
                   className="flex-1 px-4 py-2 text-xs rounded-xl bg-slate-950 border border-slate-750 text-slate-200 focus:outline-none focus:border-cyan-500"
                 />
                 <button
                   onClick={() => handleSend()}
-                  className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-colors flex items-center gap-1.5"
+                  disabled={cargando}
+                  className="px-4 py-2 rounded-xl disabled:opacity-60 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-colors flex items-center gap-1.5"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>Preguntar</span>
